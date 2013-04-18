@@ -1,0 +1,9 @@
+{
+    "name": "Simple Mail Encryption",
+    "version": "1.0",
+    "description": "Encrypts plain text mail addresses",
+    "author": {
+        "name": "Marcel Hauri",
+        "link": "https://github.com/mhauri"
+    }
+}
