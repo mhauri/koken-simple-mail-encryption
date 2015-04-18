@@ -5,7 +5,7 @@ This [Koken](http://koken.me) plugin automatically encrypts all plain text mail 
 
 Facts
 -----
-- version: 1.1.0
+- version: 1.1.1
 - works also with Madison 2 Theme
 
 Requirements

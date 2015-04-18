@@ -16,6 +16,8 @@
 
 class KokenSimpleMailEncryption extends KokenPlugin {
 
+    private $_addresses = array();
+
     public function __construct()
     {
         $this->register_filter('site.output', 'render');
@@ -27,8 +29,6 @@ class KokenSimpleMailEncryption extends KokenPlugin {
      */
     public function render($output)
     {
-        $addresses = array();
-
         // Search for all email addresses in the output
         $pattern = '/[a-z0-9_.\-\+]{1,256}+@[a-z0-9\-\.]+\.([a-z]{2,4})/i';
         preg_match_all($pattern, $output, $matches, PREG_PATTERN_ORDER);
@@ -36,30 +36,66 @@ class KokenSimpleMailEncryption extends KokenPlugin {
         foreach($matches['0'] as $match) {
             $split = explode('@', $match);
             foreach($split as $part) {
-                $addresses[$match][] = $part;
+                $this->_addresses[$match][] = $part;
             }
         }
 
-        // Check if there are any plain text mail addresses
-        if($addresses > 0) {
-
-            // Replace amail addresses with encrypted part
-            $output = $this->replaceEmailAddresses($addresses, $output);
+        // only replace when not called by ajax
+        if(stripos($output, '</body>') && $this->_hasAddresses()) {
+            $output = $this->_replaceEmailAddresses($output);
+            $output = str_replace('</body>', $this->_addJS() . '</body>', $output);
+        } else {
+            $output = $this->_replaceEmailAddresses($output, false);
         }
         return $output;
     }
 
     /**
-     * @param $addresses
      * @param $output
+     * @param bool $encode
      * @return mixed
      */
-    protected function replaceEmailAddresses($addresses, $output)
+    private function _replaceEmailAddresses($output, $encode = true)
     {
-        foreach($addresses as $address => $part) {
-            $replace = "<script type=\"text/javascript\">document.write('<a href=\"mailto:' + '" . $part[0] . "' + '@' + '" . $part[1] . "' + '\">' + '" . $part[0] . "' + '@' + '" . $part[1] . "' + '</a>');</script>";
+        foreach($this->_addresses as $address => $part) {
+            if($encode) {
+                $replace = "<span class=\"mail_". substr(base64_encode($address), 0, 12) ."\"></span>";
+            } else {
+                $replace = '<a href="mailto:' . $address . '">' . $address . '</a>';
+            }
             $output = str_replace($address, $replace, $output);
         }
         return $output;
     }
+
+    private function _addJS()
+    {
+        if ($this->_hasAddresses()) {
+            $output = '<script type="text/javascript">';
+            $output .= 'var simpleMailEncryption = function() { ';
+            foreach ($this->_addresses as $address => $part) {
+                $identifier = 'mail_' . substr(base64_encode($address), 0, 12);
+                $output .= "$('." . $identifier . "').each(function(idx, e) { console.log($(e).html()); $(e).html('<a href=\"mailto:" . $part[0] . "@" . $part[1] . "\">" . $part[0] . "@" . $part[1] . "</a>'); }); ";
+            }
+            $output .= '}; ';
+            $output .= 'simpleMailEncryption(); ';
+            $output .= '</script>';
+
+            return $output;
+        }
+
+        return '';
+    }
+
+    /**
+     * @return bool
+     */
+    private function _hasAddresses()
+    {
+        if(count($this->_addresses) > 0) {
+            return true;
+        }
+        return false;
+    }
+
 }
